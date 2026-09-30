@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Image flipper</title>
+<style>
+:root{--bg:#f2f0ec;--fg:#1b1d22;--muted:#6b6f78;--panel:#ffffff;--line:#d9d6cf;--accent:#2f5d8a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171b;--fg:#ecebe8;--muted:#9a9ea7;--panel:#1f2228;--line:#33373f;--accent:#7fb0df}}
+:root[data-theme="dark"]{--bg:#15171b;--fg:#ecebe8;--muted:#9a9ea7;--panel:#1f2228;--line:#33373f;--accent:#7fb0df}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;display:flex;flex-direction:column}
+#setup{display:flex;flex-direction:column;gap:16px;padding:24px;max-width:480px;margin:0 auto;width:100%}
+h1{font-size:1.5rem;margin:0}
+p{margin:0;color:var(--muted);line-height:1.45}
+.slot{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}
+.slot img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--line);flex:none}
+.slot span{font-weight:600}
+.slot small{display:block;color:var(--muted);font-weight:400;margin-top:2px}
+.slot input{display:none}
+.slot:focus-within{outline:2px solid var(--accent)}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:14px;background:var(--accent);color:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+#viewer{display:none;flex:1;position:relative;background:#000;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+#viewer{perspective:1200px;overflow:hidden}
+#card{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.3,.1,.2,1)}
+#card img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+#card img.b{transform:rotateY(180deg)}
+@media (prefers-reduced-motion:reduce){#card{transition-duration:.01s}}
+#back{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;background:rgba(0,0,0,.55);color:#fff;padding:8px 14px;border-radius:999px;font-size:.9rem;opacity:.85}
+#dots{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:0;right:0;display:flex;justify-content:center;gap:8px;pointer-events:none}
+#dots i{width:8px;height:8px;border-radius:50%;background:#fff;opacity:.35}
+#dots i.on{opacity:1}
+
+.band{position:absolute;left:0;right:0;height:1.6rem;overflow:hidden;pointer-events:none}
+.band .x{position:absolute;left:0;top:0;animation:bx var(--d,6s) linear infinite alternate;animation-delay:var(--o,0s)}
+.band .y{display:block;font-weight:800;font-size:1rem;line-height:1.6rem;letter-spacing:.08em;color:#fff;opacity:.5;animation:by .6s ease-in-out infinite alternate}
+@keyframes bx{from{left:0;transform:translateX(0)}to{left:100%;transform:translateX(-100%)}}
+@keyframes by{from{transform:translateY(-.3em)}to{transform:translateY(.3em)}}
+@media (prefers-reduced-motion:reduce){.band .x,.band .y{animation:none}}
+.field{display:flex;flex-direction:column;gap:6px;font-weight:600}
+.field input{font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+</style>
+</head>
+<body>
+<div id="setup">
+  <h1>Image flipper</h1>
+  <p>Choose two images. Then tap the screen to flip between them.</p>
+  <label class="slot"><img id="p1" alt=""><span>Image 1<small id="n1">Tap to choose</small></span><input type="file" accept="image/*" id="f1"></label>
+  <label class="slot"><img id="p2" alt=""><span>Image 2<small id="n2">Tap to choose</small></span><input type="file" accept="image/*" id="f2"></label>
+  <button id="start" disabled>Start</button>
+</div>
+<div id="viewer" role="button" tabindex="0" aria-label="Tap to flip image">
+  <div class="band" style="top:3%;--d:5s;--o:0s"><span class="x"><span class="y bw"></span></span></div>
+  <div class="band" style="top:20%;--d:7s;--o:-3s"><span class="x"><span class="y bw"></span></span></div>
+  <div class="band" style="top:38%;--d:6s;--o:-1s"><span class="x"><span class="y bw"></span></span></div>
+  <div class="band" style="top:56%;--d:8s;--o:-5s"><span class="x"><span class="y bw"></span></span></div>
+  <div class="band" style="top:74%;--d:5.5s;--o:-2s"><span class="x"><span class="y bw"></span></span></div>
+  <div class="band" style="top:93%;--d:6.5s;--o:-4s"><span class="x"><span class="y bw"></span></span></div>
+  <div id="card"><img id="va" alt=""><img id="vb" class="b" alt=""></div>
+  <div id="back">Close</div>
+  <div id="dots"><i class="on"></i><i></i></div>
+</div>
+<script>
+var urls=[null,null],cur=0;
+var setup=document.getElementById('setup'),viewer=document.getElementById('viewer'),card=document.getElementById('card'),va=document.getElementById('va'),vb=document.getElementById('vb'),rot=0,start=document.getElementById('start'),dots=document.querySelectorAll('#dots i');
+function pick(i){
+  document.getElementById('f'+(i+1)).addEventListener('change',function(e){
+    var f=e.target.files[0];if(!f)return;
+    if(urls[i])URL.revokeObjectURL(urls[i]);
+    urls[i]=URL.createObjectURL(f);
+    document.getElementById('p'+(i+1)).src=urls[i];
+    document.getElementById('n'+(i+1)).textContent=f.name;
+    start.disabled=!(urls[0]&&urls[1]);
+  });
+}
+pick(0);pick(1);
+function dot(){dots.forEach(function(d,k){d.classList.toggle('on',k===cur)});}
+function show(){va.src=urls[0];vb.src=urls[1];card.style.transition='none';rot=0;card.style.transform='rotateY(0deg)';void card.offsetWidth;card.style.transition='';dot();}
+function flip(){cur=1-cur;rot+=180;card.style.transform='rotateY('+rot+'deg)';dot();}
+start.addEventListener('click',function(){var w='MOCKUNI';document.querySelectorAll('.bw').forEach(function(n){n.textContent=w});cur=0;setup.style.display='none';viewer.style.display='block';show();});
+viewer.addEventListener('click',function(e){
+  if(e.target.id==='back'){viewer.style.display='none';setup.style.display='flex';return;}
+  flip();
+});
+viewer.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();flip();}});
+</script>
+</body>
+</html>
